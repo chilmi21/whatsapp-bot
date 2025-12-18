@@ -36,6 +36,7 @@ function initializeClient() {
         authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
         puppeteer: {
             headless: true,
+            executablePath: '/usr/bin/chromium',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -45,7 +46,7 @@ function initializeClient() {
                 '--no-first-run',
                 '--no-zygote',
                 '--single-process',
-                '--no-default-browser-check'
+                '--disable-software-rasterizer'
             ]
         }
     });
