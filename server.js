@@ -1,3 +1,27 @@
+const fs = require('fs');
+const path = require('path');
+
+// ⭐ AUTO DELETE SESSION ON STARTUP
+if (process.env.FORCE_DELETE_SESSION === 'true') {
+    console.log('🗑️ FORCE_DELETE_SESSION=true detected!');
+    console.log('Deleting auth_info_baileys folder...');
+    
+    const authPath = path.join(__dirname, 'auth_info_baileys');
+    
+    try {
+        if (fs.existsSync(authPath)) {
+            fs.rmSync(authPath, { recursive: true, force: true });
+            console.log('✅ Auth folder DELETED successfully!');
+        } else {
+            console.log('ℹ️ Auth folder not found (already deleted)');
+        }
+    } catch (error) {
+        console.error('❌ Error deleting auth folder:', error.message);
+    }
+}
+
+// ... rest of your existing code
+
 // Ensure crypto module is available
 if (typeof global.crypto === 'undefined') {
     global.crypto = require('crypto');
@@ -441,5 +465,6 @@ app.listen(PORT, () => {
     console.log(`Baileys version - Lightweight & Cloud-friendly`);
     console.log(`=======================================\n`);
 });
+
 
 
