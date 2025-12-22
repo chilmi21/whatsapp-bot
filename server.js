@@ -66,7 +66,7 @@ function addActivity(message) {
 async function connectToWhatsApp() {
     try {
         connectionAttempts++;
-        addActivity(`Connection attempt #${connectionAttempts}`);
+        // addActivity(`Connection attempt #${connectionAttempts}`);
 
         const { state, saveCreds } = await useMultiFileAuthState('./auth_info_baileys');
         const { version } = await fetchLatestBaileysVersion();
@@ -459,12 +459,13 @@ app.get('/', (req, res) => {
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    addActivity(`WhatsApp Bot Server running on port ${PORT}`);
+    // addActivity(`WhatsApp Bot Server running on port ${PORT}`);
     console.log(`\n=======================================`);
     console.log(`WhatsApp Bot Server running on port ${PORT}`);
     console.log(`Baileys version - Lightweight & Cloud-friendly`);
     console.log(`=======================================\n`);
 });
+
 
 
 
