@@ -110,7 +110,7 @@ async function connectToWhatsApp() {
                 
                 // Log detail error
                 if (lastDisconnect?.error) {
-                    addActivity(`Error detail: ${lastDisconnect.error.message}`);
+                    // addActivity(`Error detail: ${lastDisconnect.error.message}`);
                     console.error('Connection error:', lastDisconnect.error);
                 }
 
@@ -465,6 +465,7 @@ app.listen(PORT, () => {
     console.log(`Baileys version - Lightweight & Cloud-friendly`);
     console.log(`=======================================\n`);
 });
+
 
 
 
