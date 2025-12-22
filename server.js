@@ -368,6 +368,48 @@ app.post('/reconnect', async (req, res) => {
     }
 });
 
+// ⭐ DELETE SESSION ENDPOINT
+app.post('/delete-session', async (req, res) => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        
+        const authPath = path.join(__dirname, 'auth_info_baileys');
+        
+        if (fs.existsSync(authPath)) {
+            // Hapus folder auth
+            fs.rmSync(authPath, { recursive: true, force: true });
+            addActivity('✅ Session folder deleted');
+            
+            // Reset variables
+            qrCodeData = null;
+            isReady = false;
+            connectionAttempts = 0;
+            
+            // Reconnect untuk generate QR baru
+            setTimeout(() => {
+                connectToWhatsApp();
+            }, 1000);
+            
+            res.json({
+                success: true,
+                message: 'Session deleted. Reconnecting...'
+            });
+        } else {
+            res.json({
+                success: false,
+                message: 'Session folder not found'
+            });
+        }
+    } catch (error) {
+        addActivity(`❌ Error deleting session: ${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // Health check
 app.get('/', (req, res) => {
     res.json({
@@ -399,4 +441,5 @@ app.listen(PORT, () => {
     console.log(`Baileys version - Lightweight & Cloud-friendly`);
     console.log(`=======================================\n`);
 });
+
 
