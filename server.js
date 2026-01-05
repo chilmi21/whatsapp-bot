@@ -72,19 +72,22 @@ async function connectToWhatsApp() {
         const { version } = await fetchLatestBaileysVersion();
 
         sock = makeWASocket({
-            version,
-            auth: state,
-            printQRInTerminal: false,
-            logger: P({ level: 'silent' }),
-            browser: ['Laravel Bot', 'Chrome', '1.0.0'],
-            connectTimeoutMs: 60000, // 60 detik timeout
-            defaultQueryTimeoutMs: undefined,
-            keepAliveIntervalMs: 30000,
-            markOnlineOnConnect: true,
-            // ⭐ Tambahan untuk stabilitas
-            syncFullHistory: false,
-            getMessage: async () => undefined
-        });
+        version,
+        auth: state,
+        printQRInTerminal: false,
+        logger: P({ level: 'silent' }),
+        browser: ['Laravel Bot', 'Chrome', '1.0.0'],
+        connectTimeoutMs: 90000, // ⭐ NAIKKAN JADI 90 DETIK (dari 60)
+        defaultQueryTimeoutMs: undefined,
+        keepAliveIntervalMs: 30000,
+        markOnlineOnConnect: true,
+        syncFullHistory: false,
+        getMessage: async () => undefined,
+        // ⭐ TAMBAHKAN INI
+        retryRequestDelayMs: 250,
+        maxMsgRetryCount: 5,
+        connectCooldownMs: 5000
+    });
 
         // QR Code Event
         sock.ev.on('connection.update', async (update) => {
@@ -550,4 +553,5 @@ app.listen(PORT, () => {
     console.log(`Baileys version - Lightweight & Cloud-friendly`);
     console.log(`=======================================\n`);
 });
+
 
