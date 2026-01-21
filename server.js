@@ -68,6 +68,15 @@ async function connectToWhatsApp() {
     try {
         connectionAttempts++;
 
+        // ⭐ TAMBAHKAN INI: Reset state sebelum connect
+        qrCodeData = null;
+        qrExpiryTime = null;
+        
+        if (qrRefreshInterval) {
+            clearTimeout(qrRefreshInterval);
+            qrRefreshInterval = null;
+        }
+
         const { state, saveCreds } = await useMultiFileAuthState('./auth_info_baileys');
         const { version } = await fetchLatestBaileysVersion();
 
@@ -435,39 +444,55 @@ app.get('/activity', (req, res) => {
     });
 });
 
-// Logout/Reset endpoint
+// Logout/Reset endpoint - FIXED VERSION
 app.post('/logout', async (req, res) => {
     try {
+        addActivity('🔓 Logging out...');
+        
         if (sock) {
-            await sock.logout();
-            isReady = false;
-            qrCodeData = null;
-            qrExpiryTime = null;
-            connectionAttempts = 0;
-            
-            if (qrRefreshInterval) {
-                clearInterval(qrRefreshInterval);
-                qrRefreshInterval = null;
+            try {
+                // ⭐ Logout dengan benar
+                await sock.logout();
+                
+                // Wait 1 detik
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // End socket
+                sock.end(undefined);
+                sock = null; // ⭐ PENTING: Set null
+                
+            } catch (err) {
+                console.error('Logout error:', err);
+                sock = null; // Tetap set null
             }
-            
-            addActivity("🔓 Bot logged out successfully");
-            
-            // Reconnect setelah logout
-            setTimeout(() => {
-                connectToWhatsApp();
-            }, 2000);
-            
-            res.json({
-                success: true,
-                message: 'Logged out successfully. Reconnecting...'
-            });
-        } else {
-            res.status(400).json({
-                success: false,
-                message: 'No active connection'
-            });
         }
+        
+        // Reset variables
+        isReady = false;
+        qrCodeData = null;
+        qrExpiryTime = null;
+        connectionAttempts = 0;
+        
+        if (qrRefreshInterval) {
+            clearTimeout(qrRefreshInterval);
+            qrRefreshInterval = null;
+        }
+        
+        addActivity("✅ Logged out successfully");
+        
+        // ⭐ Reconnect setelah 3 detik (bukan 2)
+        setTimeout(() => {
+            addActivity('🔄 Reconnecting...');
+            connectToWhatsApp();
+        }, 3000);
+        
+        res.json({
+            success: true,
+            message: 'Logged out successfully. Reconnecting...'
+        });
+        
     } catch (error) {
+        console.error('Logout error:', error);
         res.status(500).json({
             success: false,
             message: 'Logout failed: ' + error.message
@@ -507,56 +532,103 @@ app.post('/reconnect', async (req, res) => {
     }
 });
 
-// ⭐ DELETE SESSION ENDPOINT
+// ⭐ DELETE SESSION ENDPOINT - FIXED VERSION
 app.post('/delete-session', async (req, res) => {
     try {
+        addActivity('🗑️ Deleting session...');
+        
         const authPath = path.join(__dirname, 'auth_info_baileys');
         
-        // Close existing connection first
+        // ⭐ STEP 1: Close socket dengan PAKSA
         if (sock) {
             try {
-                sock.end();
+                addActivity('⚠️ Closing existing connection...');
+                
+                // Force logout dulu
+                await sock.logout().catch(err => {
+                    console.log('Logout error (ignored):', err.message);
+                });
+                
+                // End socket
+                sock.end(new Error('Session reset'));
+                sock = null; // ⭐ SET NULL biar benar-benar lepas
+                
             } catch (err) {
-                console.error('Error ending socket:', err);
+                console.error('Error closing socket:', err);
+                sock = null; // Tetap set null meskipun error
             }
         }
         
+        // ⭐ STEP 2: Clear QR interval
         if (qrRefreshInterval) {
-            clearInterval(qrRefreshInterval);
+            clearTimeout(qrRefreshInterval);
             qrRefreshInterval = null;
         }
         
+        // ⭐ STEP 3: Reset ALL variables
+        qrCodeData = null;
+        qrExpiryTime = null;
+        isReady = false;
+        connectionAttempts = 0;
+        
+        // ⭐ STEP 4: Wait 2 detik, baru hapus folder
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         if (fs.existsSync(authPath)) {
-            // Hapus folder auth
-            fs.rmSync(authPath, { recursive: true, force: true });
-            addActivity('✅ Session folder deleted');
-            
-            // Reset variables
-            qrCodeData = null;
-            qrExpiryTime = null;
-            isReady = false;
-            connectionAttempts = 0;
-            
-            // Reconnect untuk generate QR baru
-            setTimeout(() => {
-                connectToWhatsApp();
-            }, 1000);
-            
-            res.json({
-                success: true,
-                message: 'Session deleted. Reconnecting...'
-            });
+            try {
+                // Hapus dengan force
+                fs.rmSync(authPath, { 
+                    recursive: true, 
+                    force: true,
+                    maxRetries: 3, // ⭐ Retry kalau gagal
+                    retryDelay: 1000 
+                });
+                
+                addActivity('✅ Session folder deleted successfully');
+                console.log('✅ Auth folder deleted:', authPath);
+                
+            } catch (deleteError) {
+                addActivity('❌ Failed to delete session folder');
+                console.error('Delete error:', deleteError);
+                
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to delete session: ' + deleteError.message
+                });
+            }
         } else {
-            res.json({
+            addActivity('ℹ️ Session folder not found (already deleted)');
+        }
+        
+        // ⭐ STEP 5: Verify folder BENAR-BENAR TERHAPUS
+        const folderStillExists = fs.existsSync(authPath);
+        if (folderStillExists) {
+            addActivity('⚠️ Warning: Folder still exists after delete!');
+            return res.status(500).json({
                 success: false,
-                message: 'Session folder not found'
+                message: 'Session folder still exists. Please delete manually.'
             });
         }
+        
+        // ⭐ STEP 6: Wait 3 detik, baru reconnect (generate QR baru)
+        addActivity('⏳ Waiting 3 seconds before reconnect...');
+        setTimeout(() => {
+            addActivity('🔄 Starting fresh connection...');
+            connectToWhatsApp();
+        }, 3000);
+        
+        res.json({
+            success: true,
+            message: 'Session deleted successfully. Generating new QR code...'
+        });
+        
     } catch (error) {
         addActivity(`❌ Error deleting session: ${error.message}`);
+        console.error('Delete session error:', error);
+        
         res.status(500).json({
             success: false,
-            message: error.message
+            message: 'Delete session failed: ' + error.message
         });
     }
 });
@@ -596,6 +668,7 @@ app.listen(PORT, () => {
     console.log(`Baileys version - Lightweight & Cloud-friendly`);
     console.log(`=======================================\n`);
 });
+
 
 
 
